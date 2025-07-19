@@ -1,94 +1,78 @@
-from tool_function_registry import register_function
-from datetime import datetime
-import json
-import os
 import subprocess
+import json
+import sys
+from datetime import datetime
 
-# Log file path
 LOG_FILE = "dopamine_log.json"
-print(f"[DEBUG] Logging to: {LOG_FILE}")
-print(f"[DEBUG] Current working directory: {os.getcwd()}")
-
-def get_timestamp():
-    return datetime.now().isoformat()
 
 def classify_event_with_ai(message: str) -> str:
-    """
-    Use Ollama + local LLM to classify a behavior log as good or bad,
-    considering intent, time, and discipline impact.
-    """
-    prompt = f"""
-Classify the following activity as either 'good' or 'bad' for long-term focus, discipline, and mental well-being.
-
-Take into account:
-- The nature of the activity (productive vs indulgent)
-- The intent behind it (reward vs avoidance)
-- Its impact on long-term goals
-
-Activity: '{message}'
-
-Reply with only one word: 'good' or 'bad'.
-"""
-
     try:
-        result = subprocess.run(
-            ["ollama", "run", "llama3", prompt],
-            capture_output=True, text=True, timeout=10
+        prompt = (
+            f"Classify the following activity as either 'good' or 'bad' for long-term focus and discipline. "
+            f"Respond with only one word: good or bad.\n\nActivity: {message}"
         )
+
+        command = ["ollama", "run", "llama3", prompt]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+
         output = result.stdout.strip().lower()
-        if "good" in output:
-            return "good"
-        elif "bad" in output:
-            return "bad"
+        first_word = output.split()[0]
+
+        if first_word in ["good", "bad"]:
+            return first_word
         else:
+            print(f"[WARN] Unexpected AI output: {output}")
             return "unknown"
+
     except Exception as e:
         print(f"[ERROR] AI classification failed: {e}")
         return "unknown"
 
+def log_event(message: str):
+    original_message = message.strip()
 
-@register_function("log_dopamine_event")
-def log_dopamine_event(message):
-    print(f"[DEBUG] log_dopamine_event CALLED with: {message}")
-
-    if not message:
-        return "❌ No message provided."
-
-    # Classify using AI
-    classification = classify_event_with_ai(message)
-    if classification == "unknown":
-        return "❌ AI couldn't classify the message."
-
-    # Load existing logs
-    if os.path.exists(LOG_FILE):
-        try:
-            with open(LOG_FILE, "r") as f:
-                log = json.load(f)
-        except json.JSONDecodeError:
-            print("[WARN] Corrupted log file. Starting fresh.")
-            log = []
+    # Manual override
+    if "!good" in original_message:
+        classification = "good"
+        message = original_message.replace("!good", "").strip()
+    elif "!bad" in original_message:
+        classification = "bad"
+        message = original_message.replace("!bad", "").strip()
     else:
-        log = []
+        classification = classify_event_with_ai(original_message)
+        message = original_message
 
-    # Append new entry
     entry = {
-        "timestamp": get_timestamp(),
-        "type": classification,
+        "timestamp": datetime.now().isoformat(),
         "message": message,
-        "classified_by": "AI"
+        "classification": classification
     }
-    log.append(entry)
 
-    # Save back to file
     try:
-        with open(LOG_FILE, "w") as f:
-            json.dump(log, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        print(f"[✅] JSON written to: {LOG_FILE}")
-        print(f"[📝] Entry:\n{json.dumps(entry, indent=2)}")
+        with open(LOG_FILE, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+        print(f"✅ Logged: {message} | Tag: {classification}")
     except Exception as e:
-        print(f"[ERROR] Failed to write log: {e}")
-        return "❌ Failed to save log."
+        print(f"[ERROR] Failed to write to log: {e}")
 
-    return f"✅ Logged: [{entry['type'].upper()}] {entry['message']} at {entry['timestamp']}"
+def test_classifier():
+    test_cases = [
+        "worked out in the morning",
+        "watched TikTok for an hour",
+        "coded my AI assistant",
+        "scrolled Reddit before sleep",
+        "studied chemistry",
+        "ate chips and soda late at night"
+    ]
+    for case in test_cases:
+        tag = classify_event_with_ai(case)
+        print(f"{case} => {tag}")
+
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        test_classifier()
+    elif len(sys.argv) > 1:
+        input_message = " ".join(sys.argv[1:])
+        log_event(input_message)
+    else:
+        print("Usage:\n  python log_dopamine_event.py <your activity>\n  python log_dopamine_event.py --test")
