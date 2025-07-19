@@ -4,5 +4,11 @@
     "type": "bad",
     "message": "craving played valorant for 2 hours",
     "classified_by": "AI"
+  },
+  {
+    "timestamp": "2025-07-19T13:09:58.935776",
+    "type": "bad",
+    "message": "craving scrolled for 30 minutes",
+    "classified_by": "AI"
   }
 ]
