@@ -5,8 +5,8 @@ PROFILE_FILE = "profile.json"
 
 default_profile = {
     "name": "Your Name",
-    "focus": "Build real AI products",
-    "level": "Builder"
+    "focus": "Self-improve",
+    "level": "New"
 }
 
 def load_profile():
