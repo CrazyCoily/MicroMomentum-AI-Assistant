@@ -10,7 +10,7 @@ print(f"[DEBUG] Logging to: {LOG_FILE}")
 print(f"[DEBUG] Current working directory: {os.getcwd()}")
 
 def get_timestamp():
-    return datetime.now().isoformat()
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def classify_event_with_ai(message: str) -> str:
     """
